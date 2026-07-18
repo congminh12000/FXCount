@@ -1,0 +1,113 @@
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css';
+@import '@fontsource/be-vietnam-pro/700.css';
+@import '@fontsource/be-vietnam-pro/800.css';
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #0a0a0c;
+  --color-panel: #121215;
+  --color-card: #16161a;
+  --color-card2: #1d1d23;
+  --color-line: rgba(212, 175, 55, 0.14);
+  --color-line-strong: rgba(212, 175, 55, 0.32);
+  --color-gold: #d4af37;
+  --color-gold-bright: #f5d061;
+  --color-gold-deep: #8c6d1f;
+  --color-cream: #f5f2e9;
+  --color-muted: #9a948a;
+  --color-danger: #e5484d;
+  --font-sans:
+    'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#root {
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Chữ vàng gradient cho số tiền / tiêu đề nổi bật */
+@utility text-gold-gradient {
+  background: linear-gradient(135deg, #f7dc84 0%, #f5d061 30%, #d4af37 70%, #b8912a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Card có chiều sâu: viền vàng mờ + highlight mép trên + bóng đổ */
+@utility card-depth {
+  background: linear-gradient(180deg, #1a1a20 0%, #141418 100%);
+  border: 1px solid var(--color-line);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 16px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Nút vàng chính */
+@utility btn-gold {
+  background: linear-gradient(160deg, #f5d061 0%, #d4af37 55%, #b8912a 100%);
+  color: #14100a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 6px 20px rgba(212, 175, 55, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Thanh kính mờ neo đáy */
+@utility glass-bar {
+  background: rgba(14, 14, 17, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-top: 1px solid var(--color-line);
+}
+
+@utility safe-top {
+  padding-top: max(env(safe-area-inset-top), 16px);
+}
+
+@utility safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* Glow vàng toả nhẹ ở nền */
+@utility bg-glow {
+  background:
+    radial-gradient(120% 50% at 50% -10%, rgba(212, 175, 55, 0.13) 0%, transparent 60%),
+    radial-gradient(80% 40% at 50% 110%, rgba(212, 175, 55, 0.05) 0%, transparent 60%),
+    var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
