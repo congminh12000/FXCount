@@ -9,6 +9,7 @@ import DoneScreen from './screens/DoneScreen'
 import History from './screens/History'
 import Settings from './screens/Settings'
 import SettingsCurrency from './screens/SettingsCurrency'
+import ImportRates from './screens/ImportRates'
 
 const SCREENS = {
   home: Home,
@@ -20,6 +21,7 @@ const SCREENS = {
   history: History,
   settings: Settings,
   'settings-currency': SettingsCurrency,
+  'import-rates': ImportRates,
 }
 
 const variants = {

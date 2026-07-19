@@ -126,6 +126,7 @@ export default function SettingsCurrency({ params }) {
   const currencies = useStore((s) => s.currencies)
   const addDenomination = useStore((s) => s.addDenomination)
   const removeDenomination = useStore((s) => s.removeDenomination)
+  const setAnchorDenomination = useStore((s) => s.setAnchorDenomination)
   const removeCurrency = useStore((s) => s.removeCurrency)
   const pop = useStore((s) => s.pop)
 
@@ -163,7 +164,7 @@ export default function SettingsCurrency({ params }) {
                     đ / tờ {fmtNum(anchor.value)} {currency.code}
                   </span>
                 </div>
-                <AnchorPriceInput key={`buy-${currency.code}`} currency={currency} side="buy" />
+                <AnchorPriceInput key={`buy-${currency.code}-${anchor.value}`} currency={currency} side="buy" />
               </div>
               <div className="card-depth rounded-2xl p-4">
                 <div className="mb-2 flex items-center justify-between">
@@ -172,18 +173,20 @@ export default function SettingsCurrency({ params }) {
                     đ / tờ {fmtNum(anchor.value)} {currency.code}
                   </span>
                 </div>
-                <AnchorPriceInput key={`sell-${currency.code}`} currency={currency} side="sell" />
+                <AnchorPriceInput key={`sell-${currency.code}-${anchor.value}`} currency={currency} side="sell" />
               </div>
             </div>
           </>
         ) : (
           <p className="mb-3 rounded-xl bg-card2/60 px-3 py-2.5 text-xs leading-relaxed text-muted">
-            Thêm mệnh giá trước — tờ chuẩn (mệnh giá bắt đầu bằng số 1, lớn nhất) sẽ được chọn tự
-            động để cài giá.
+            Thêm mệnh giá trước, sau đó chọn tờ chuẩn để cài giá.
           </p>
         )}
 
-        <p className="mb-2 text-[11px] font-bold tracking-[0.15em] text-muted">MỆNH GIÁ</p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-bold tracking-[0.15em] text-muted">MỆNH GIÁ</p>
+          <p className="text-[10px] font-semibold text-muted">Chọn ◉ để đặt tờ chuẩn</p>
+        </div>
 
         {currency.denominations.map((d) => {
           const isAnchor = anchor && d.id === anchor.id
@@ -196,6 +199,19 @@ export default function SettingsCurrency({ params }) {
           return (
             <motion.div key={d.id} layout className="card-depth mb-2.5 overflow-hidden rounded-2xl">
               <div className="flex items-center gap-2 p-3 pl-4">
+                <label className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center">
+                  <input
+                    type="radio"
+                    name={`anchor-${currency.code}`}
+                    checked={Boolean(isAnchor)}
+                    onChange={() => {
+                      setAnchorDenomination(currency.code, d.value)
+                      setOpenId(null)
+                    }}
+                    aria-label={`Đặt ${fmtNum(d.value)} ${currency.code} làm tờ chuẩn`}
+                    className="h-5 w-5 cursor-pointer accent-[#d4af37]"
+                  />
+                </label>
                 <button
                   onClick={() => canEdit && setOpenId(open ? null : d.id)}
                   className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -240,7 +256,9 @@ export default function SettingsCurrency({ params }) {
                     />
                   )}
                 </button>
-                <ConfirmIconButton onConfirm={() => removeDenomination(currency.code, d.id)} />
+                {!isAnchor && (
+                  <ConfirmIconButton onConfirm={() => removeDenomination(currency.code, d.id)} />
+                )}
               </div>
 
               <AnimatePresence initial={false}>

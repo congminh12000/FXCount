@@ -75,3 +75,31 @@ export const ArrowUp = (p) => (
     <path d="M12 19V5M5 12l7-7 7 7" />
   </svg>
 )
+
+export const Camera = (p) => (
+  <svg viewBox="0 0 24 24" width={p.size || 22} height={p.size || 22} {...base} {...p}>
+    <path d="M4 7h3l2-3h6l2 3h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" />
+    <circle cx="12" cy="13" r="4" />
+  </svg>
+)
+
+export const ImageIcon = (p) => (
+  <svg viewBox="0 0 24 24" width={p.size || 22} height={p.size || 22} {...base} {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <path d="M21 15l-5-5L5 21" />
+  </svg>
+)
+
+export const ScanLine = (p) => (
+  <svg viewBox="0 0 24 24" width={p.size || 22} height={p.size || 22} {...base} {...p}>
+    <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M3 12h18" />
+  </svg>
+)
+
+export const Undo = (p) => (
+  <svg viewBox="0 0 24 24" width={p.size || 22} height={p.size || 22} {...base} {...p}>
+    <path d="M9 7l-5 5 5 5" />
+    <path d="M4 12h10a6 6 0 0 1 6 6v1" />
+  </svg>
+)

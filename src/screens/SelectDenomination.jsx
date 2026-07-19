@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import useStore, { findCurrency, anchorOf, pricePerNoteFor } from '../store/useStore'
-import { fmtNum, fmtVND } from '../utils/format'
+import { fmtNum } from '../utils/format'
 import Header from '../components/Header'
 import { PressCard, TypeBadge, BigButton, EmptyState } from '../components/UI'
 import { Plus } from '../components/Icons'
@@ -46,7 +46,6 @@ export default function SelectDenomination({ params }) {
       ) : (
         <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto px-5 pt-2 pb-8">
           {currency.denominations.map((d) => {
-            const price = pricePerNoteFor(currency, d, billType)
             const isAnchor = anchor && d.id === anchor.id
             return (
               <PressCard
@@ -64,9 +63,6 @@ export default function SelectDenomination({ params }) {
                 <span className="text-[24px] leading-none font-extrabold tnum">
                   {fmtNum(d.value)}
                   <span className="ml-1 text-[11px] font-semibold text-muted">{currency.code}</span>
-                </span>
-                <span className={`text-[13px] font-bold tnum ${price ? 'text-gold-bright' : 'text-muted/60'}`}>
-                  {price ? `${fmtVND(price)} đ/tờ` : 'chưa cài giá'}
                 </span>
               </PressCard>
             )

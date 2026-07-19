@@ -61,6 +61,31 @@ export function sellPricePerNote(currency, denom) {
 export const pricePerNoteFor = (currency, denom, type) =>
   type === 'buy' ? buyPricePerNote(currency, denom) : sellPricePerNote(currency, denom)
 
+export function changeCurrencyAnchor(currency, nextAnchorValue) {
+  const nextAnchor = currency.denominations.find((denom) => denom.value === nextAnchorValue)
+  const currentAnchor = anchorOf(currency)
+  if (!nextAnchor || currentAnchor?.value === nextAnchor.value) return currency
+
+  const buyAnchorPrice = buyPricePerNote(currency, nextAnchor)
+  const sellAnchorPrice = sellPricePerNote(currency, nextAnchor)
+  const denominations = currency.denominations.map((denom) => {
+    if (denom.id !== nextAnchor.id) return denom
+    const plainDenom = { ...denom }
+    delete plainDenom.fixedBuyRate
+    delete plainDenom.fixedBuyUnit
+    delete plainDenom.derivedBuy
+    return { ...plainDenom, adjustBuy: 0 }
+  })
+
+  return {
+    ...currency,
+    anchorValue: nextAnchor.value,
+    buyAnchorPrice,
+    sellAnchorPrice,
+    denominations,
+  }
+}
+
 // Item cũ (v1) lưu rate theo đơn vị — quy về giá/tờ để hiển thị thống nhất
 export const itemPricePerNote = (item) =>
   item.pricePerNote ?? Math.round((item.rate || 0) * item.denomValue)
@@ -170,6 +195,116 @@ function repriceBillCurrency(bill, currencies, code) {
   }
 }
 
+const clonePersisted = (value) => JSON.parse(JSON.stringify(value))
+
+export function applyRateEntriesToCurrencies(currencies, entries) {
+  const changedCodes = new Set()
+  const updatesByCode = new Map()
+
+  for (const entry of entries) {
+    const value = Math.round(entry.proposedValue)
+    if (
+      !entry.code ||
+      !currencies.some((currency) => currency.code === entry.code) ||
+      !Number.isFinite(value) ||
+      value <= 0
+    ) continue
+    changedCodes.add(entry.code)
+    if (!updatesByCode.has(entry.code)) updatesByCode.set(entry.code, [])
+    updatesByCode.get(entry.code).push({ ...entry, proposedValue: value })
+  }
+
+  const nextCurrencies = currencies.map((currency) => {
+    const updates = updatesByCode.get(currency.code)
+    if (!updates?.length) return currency
+
+    let next = { ...currency }
+    for (const entry of updates) {
+      if (entry.kind === 'buy') next.buyAnchorPrice = entry.proposedValue
+      if (entry.kind === 'sell') next.sellAnchorPrice = entry.proposedValue
+
+      if (currency.code === 'KRW' && entry.kind === 'krw_10_1') {
+        next.buyAnchorPrice = entry.proposedValue
+        next.denominations = next.denominations.map((denom) =>
+          denom.value === 10000
+            ? { ...denom, derivedBuy: { sourceValue: 1000, multiplier: 10, offset: 0 } }
+            : denom
+        )
+      }
+
+      if (currency.code === 'KRW' && entry.kind === 'krw_50_5') {
+        next.denominations = next.denominations.map((denom) => {
+          if (denom.value === 5000) {
+            return {
+              ...denom,
+              adjustBuy: 0,
+              fixedBuyRate: entry.proposedValue,
+              fixedBuyUnit: 1000,
+            }
+          }
+          if (denom.value === 50000) {
+            return { ...denom, derivedBuy: { sourceValue: 5000, multiplier: 10, offset: 0 } }
+          }
+          return denom
+        })
+      }
+    }
+    return next
+  })
+
+  return { currencies: nextCurrencies, changedCodes }
+}
+
+export function repriceOpenBill(bill, currencies, changedCodes) {
+  if (!bill?.items?.length || !changedCodes.size) return bill
+  return {
+    ...bill,
+    items: bill.items.map((item) => {
+      if (!changedCodes.has(item.currencyCode)) return item
+      const currency = currencies.find((candidate) => candidate.code === item.currencyCode)
+      const denom = currency?.denominations.find((candidate) => candidate.value === item.denomValue)
+      const pricePerNote = currency ? pricePerNoteFor(currency, denom, bill.type) : null
+      if (!pricePerNote) return item
+      return {
+        ...item,
+        pricePerNote,
+        foreignAmount: item.qty * item.denomValue,
+        subtotalVND: Math.round(item.qty * pricePerNote),
+      }
+    }),
+  }
+}
+
+export function buildRateImportState(state, entries, meta = {}, importedAt = Date.now()) {
+  const { currencies, changedCodes } = applyRateEntriesToCurrencies(state.currencies, entries)
+  if (!changedCodes.size) return state
+  return {
+    currencies,
+    bill: repriceOpenBill(state.bill, currencies, changedCodes),
+    lastRateImportBackup: {
+      createdAt: importedAt,
+      currencies: clonePersisted(state.currencies),
+      bill: clonePersisted(state.bill),
+    },
+    lastRateImport: {
+      importedAt,
+      sheetDateLabel: meta.sheetDateLabel || null,
+      changedCodes: [...changedCodes],
+      entryCount: entries.length,
+    },
+  }
+}
+
+export function restoreRateImportBackup(state) {
+  if (!state.lastRateImportBackup) return state
+  return {
+    currencies: clonePersisted(state.lastRateImportBackup.currencies),
+    bill: clonePersisted(state.lastRateImportBackup.bill),
+    lastRateImportBackup: null,
+    lastRateImport: null,
+  }
+}
+
 const useStore = create(
   persist(
     (set, get) => ({
@@ -246,6 +381,17 @@ const useStore = create(
           ),
         })),
 
+      setAnchorDenomination: (code, anchorValue) =>
+        set((s) => {
+          const currencies = s.currencies.map((currency) =>
+            currency.code === code ? changeCurrencyAnchor(currency, anchorValue) : currency
+          )
+          return {
+            currencies,
+            bill: repriceBillCurrency(s.bill, currencies, code),
+          }
+        }),
+
       // Chênh lệch giá mua đ/tờ cho 1 mệnh giá
       setAdjust: (code, denomId, adjustBuy) =>
         set((s) => ({
@@ -275,6 +421,13 @@ const useStore = create(
               : c
           ),
         })),
+
+      applyRateImport: (entries, meta) => set((s) => buildRateImportState(s, entries, meta)),
+
+      undoRateImport: () => set((s) => restoreRateImportBackup(s)),
+
+      lastRateImportBackup: null,
+      lastRateImport: null,
 
       /* ---------- Bill đang tính ---------- */
       bill: { type: null, items: [] },
@@ -324,7 +477,7 @@ const useStore = create(
     }),
     {
       name: 'fxcount',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         if (version < 2 && persisted?.currencies) {
           persisted.currencies = persisted.currencies.map(migrateV1Currency)
@@ -341,7 +494,13 @@ const useStore = create(
         }
         return persisted
       },
-      partialize: (s) => ({ currencies: s.currencies, bill: s.bill, history: s.history }),
+      partialize: (s) => ({
+        currencies: s.currencies,
+        bill: s.bill,
+        history: s.history,
+        lastRateImportBackup: s.lastRateImportBackup,
+        lastRateImport: s.lastRateImport,
+      }),
     }
   )
 )
