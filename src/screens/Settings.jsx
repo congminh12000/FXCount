@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import useStore from '../store/useStore'
 import Header from '../components/Header'
 import { Toggle, BigButton } from '../components/UI'
-import { ChevronRight, Plus } from '../components/Icons'
+import { ChevronRight, Plus, ScanLine } from '../components/Icons'
 
 export default function Settings() {
   const currencies = useStore((s) => s.currencies)
@@ -35,6 +35,13 @@ export default function Settings() {
       <Header title="Cài đặt" />
 
       <div className="flex-1 overflow-y-auto px-5 pt-1 pb-10">
+        <BigButton
+          className="mb-4 w-full"
+          onClick={() => push('import-rates')}
+        >
+          <ScanLine size={20} /> Nhập bảng giá từ ảnh
+        </BigButton>
+
         {currencies.map((c) => (
           <div
             key={c.code}
