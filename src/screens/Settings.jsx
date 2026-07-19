@@ -32,14 +32,9 @@ export default function Settings() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <Header title="Cài đặt" subtitle="Bật/tắt ngoại tệ, chỉnh mệnh giá và đơn giá" />
+      <Header title="Cài đặt" />
 
       <div className="flex-1 overflow-y-auto px-5 pt-1 pb-10">
-        <p className="mb-3 rounded-xl bg-card2/60 px-3 py-2.5 text-xs leading-relaxed text-muted">
-          Đơn giá = số VND cho <b className="text-cream">1 đơn vị</b> ngoại tệ. Chạm vào từng
-          ngoại tệ để chỉnh mệnh giá và đơn giá mua/bán.
-        </p>
-
         {currencies.map((c) => (
           <div
             key={c.code}

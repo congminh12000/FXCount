@@ -6,23 +6,50 @@ import { uid } from '../utils/format'
 // Điều hướng dạng stack: mỗi entry là 1 màn hình, direction điều khiển chiều slide.
 const homeEntry = () => ({ key: uid(), name: 'home', params: {} })
 
-/* ---------- Logic giá "tờ chuẩn + chênh lệch" ----------
- * Tờ chuẩn = mệnh giá có chữ số đầu là 1, lớn nhất (VD: EUR 5-500 → 100, KRW → 10.000).
+/* ---------- Logic giá "tờ chuẩn + giá riêng / chênh lệch / liên kết" ----------
+ * Tờ chuẩn có thể được chỉ định bằng anchorValue; nếu không có thì tự chọn mệnh giá
+ * bắt đầu bằng số 1 và lớn nhất (VD: EUR 5-500 → 100).
  * giá mua /tờ = buyAnchorPrice × (mệnh giá / tờ chuẩn) + adjustBuy (đ/tờ)
+ * fixedBuyRate / fixedBuyUnit cho phép đặt giá mua riêng theo một đơn vị quy ước.
+ * derivedBuy cho phép lấy giá từ một mệnh giá khác rồi nhân/cộng (VD KRW).
  * giá bán /tờ = sellAnchorPrice × (mệnh giá / tờ chuẩn)
  */
 export function anchorOf(currency) {
   const ds = currency.denominations
   if (!ds || !ds.length) return null
+  const explicit = ds.find((dd) => dd.value === currency.anchorValue)
+  if (explicit) return explicit
   const leading1 = ds.filter((dd) => String(dd.value)[0] === '1')
   const pool = leading1.length ? leading1 : ds
   return pool.reduce((a, b) => (b.value > a.value ? b : a))
 }
 
-export function buyPricePerNote(currency, denom) {
+function resolveBuyPrice(currency, denom, visited) {
+  if (!denom || visited.has(denom.id)) return null
+  const nextVisited = new Set(visited)
+  nextVisited.add(denom.id)
+
+  if (denom.fixedBuyRate !== undefined) {
+    const unit = denom.fixedBuyUnit || 1
+    return denom.fixedBuyRate ? Math.round((denom.value / unit) * denom.fixedBuyRate) : null
+  }
+
+  if (denom.derivedBuy) {
+    const source = currency.denominations.find((dd) => dd.value === denom.derivedBuy.sourceValue)
+    const sourcePrice = resolveBuyPrice(currency, source, nextVisited)
+    if (sourcePrice == null) return null
+    return Math.round(
+      sourcePrice * (denom.derivedBuy.multiplier || 1) + (denom.derivedBuy.offset || 0)
+    )
+  }
+
   const anchor = anchorOf(currency)
   if (!anchor || !currency.buyAnchorPrice) return null
   return Math.round(currency.buyAnchorPrice * (denom.value / anchor.value) + (denom.adjustBuy || 0))
+}
+
+export function buyPricePerNote(currency, denom) {
+  return resolveBuyPrice(currency, denom, new Set())
 }
 
 export function sellPricePerNote(currency, denom) {
@@ -61,6 +88,84 @@ function migrateV1Currency(c) {
       const adjustBuy =
         anchorBuyRate != null && r != null ? Math.round(dd.value * (r - anchorBuyRate)) : 0
       return { id: dd.id, value: dd.value, adjustBuy }
+    }),
+  }
+}
+
+// Áp dụng hồ sơ giá của tiệm cho các ngoại tệ chuẩn, giữ trạng thái bật/tắt và
+// giữ lại các ngoại tệ do người dùng tự thêm.
+function migrateV3Currencies(currencies = []) {
+  const configured = defaultCurrencies()
+  const existingByCode = new Map(currencies.map((currency) => [currency.code, currency]))
+  const configuredCodes = new Set(configured.map((currency) => currency.code))
+
+  return [
+    ...configured.map((currency) => ({
+      ...currency,
+      enabled: existingByCode.get(currency.code)?.enabled ?? currency.enabled,
+    })),
+    ...currencies.filter((currency) => !configuredCodes.has(currency.code)),
+  ]
+}
+
+const usdFixedBuyRates = new Map([
+  [20, 23000],
+  [10, 23000],
+  [5, 20000],
+  [2, 20000],
+  [1, 20000],
+])
+
+// Các tờ USD nhỏ dùng đơn giá riêng, không đổi theo giá tờ chuẩn 100 USD.
+function migrateV4Currencies(currencies = []) {
+  if (!currencies.length) return defaultCurrencies()
+  return currencies.map((currency) => {
+    if (currency.code !== 'USD') return currency
+    return {
+      ...currency,
+      denominations: currency.denominations.map((denom) => {
+        const fixedBuyRate = usdFixedBuyRates.get(denom.value)
+        return fixedBuyRate
+          ? { ...denom, adjustBuy: 0, fixedBuyRate }
+          : denom
+      }),
+    }
+  })
+}
+
+// Tờ 5.000 KRW mua theo 16.000đ / 1.000 KRW; tờ 50.000 kế thừa tờ 5.000 × 10.
+function migrateV5Currencies(currencies = []) {
+  if (!currencies.length) return defaultCurrencies()
+  return currencies.map((currency) => {
+    if (currency.code !== 'KRW') return currency
+    return {
+      ...currency,
+      denominations: currency.denominations.map((denom) =>
+        denom.value === 5000
+          ? { ...denom, adjustBuy: 0, fixedBuyRate: 16000, fixedBuyUnit: 1000 }
+          : denom
+      ),
+    }
+  })
+}
+
+function repriceBillCurrency(bill, currencies, code) {
+  if (!bill?.items?.length) return bill
+  const currency = currencies.find((item) => item.code === code)
+  if (!currency) return bill
+  return {
+    ...bill,
+    items: bill.items.map((item) => {
+      if (item.currencyCode !== code) return item
+      const denom = currency.denominations.find((candidate) => candidate.value === item.denomValue)
+      const pricePerNote = pricePerNoteFor(currency, denom, bill.type)
+      if (!pricePerNote) return item
+      return {
+        ...item,
+        pricePerNote,
+        foreignAmount: item.qty * item.denomValue,
+        subtotalVND: Math.round(item.qty * pricePerNote),
+      }
     }),
   }
 }
@@ -156,6 +261,21 @@ const useStore = create(
           ),
         })),
 
+      // Đơn giá mua riêng cho 1 đơn vị ngoại tệ (null = chưa cài).
+      setFixedBuyRate: (code, denomId, fixedBuyRate) =>
+        set((s) => ({
+          currencies: s.currencies.map((c) =>
+            c.code === code
+              ? {
+                  ...c,
+                  denominations: c.denominations.map((dd) =>
+                    dd.id === denomId ? { ...dd, fixedBuyRate } : dd
+                  ),
+                }
+              : c
+          ),
+        })),
+
       /* ---------- Bill đang tính ---------- */
       bill: { type: null, items: [] },
 
@@ -204,10 +324,20 @@ const useStore = create(
     }),
     {
       name: 'fxcount',
-      version: 2,
+      version: 5,
       migrate: (persisted, version) => {
         if (version < 2 && persisted?.currencies) {
           persisted.currencies = persisted.currencies.map(migrateV1Currency)
+        }
+        if (version < 3) {
+          persisted.currencies = migrateV3Currencies(persisted?.currencies)
+        }
+        if (version < 4) {
+          persisted.currencies = migrateV4Currencies(persisted?.currencies)
+        }
+        if (version < 5) {
+          persisted.currencies = migrateV5Currencies(persisted?.currencies)
+          persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'KRW')
         }
         return persisted
       },

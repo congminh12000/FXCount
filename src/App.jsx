@@ -45,7 +45,7 @@ export default function App() {
           animate="center"
           exit="exit"
           transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-          className="bg-glow absolute inset-0 flex flex-col"
+          className="bg-glow absolute inset-0 flex flex-col [&>*]:min-h-0"
         >
           <ScreenComp params={top.params} />
         </motion.div>

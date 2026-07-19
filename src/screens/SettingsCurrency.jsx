@@ -91,6 +91,37 @@ function AdjustEditor({ currency, denom }) {
   )
 }
 
+function FixedBuyRateEditor({ currency, denom }) {
+  const setFixedBuyRate = useStore((s) => s.setFixedBuyRate)
+  const [text, setText] = useState(denom.fixedBuyRate ? fmtVND(denom.fixedBuyRate) : '')
+  const buy = buyPricePerNote(currency, denom)
+  const unit = denom.fixedBuyUnit || 1
+
+  return (
+    <div className="border-t border-line px-4 pt-3 pb-4">
+      <label className="block">
+        <span className="mb-2 block text-xs font-semibold text-muted">
+          Giá mua riêng (đ / {fmtNum(unit)} {currency.code})
+        </span>
+        <input
+          value={text}
+          inputMode="numeric"
+          placeholder="VD: 23.000"
+          onChange={(e) => {
+            const next = formatRateInput(e.target.value)
+            setText(next)
+            setFixedBuyRate(currency.code, denom.id, parseRate(next))
+          }}
+          className={`${inputCls} w-full text-right`}
+        />
+      </label>
+      <p className="mt-2.5 text-sm font-semibold text-gold-bright tnum">
+        = mua {buy ? fmtVND(buy) : '—'} đ/tờ
+      </p>
+    </div>
+  )
+}
+
 export default function SettingsCurrency({ params }) {
   const currencies = useStore((s) => s.currencies)
   const addDenomination = useStore((s) => s.addDenomination)
@@ -120,8 +151,8 @@ export default function SettingsCurrency({ params }) {
         {anchor ? (
           <>
             <p className="mb-3 rounded-xl bg-card2/60 px-3 py-2.5 text-xs leading-relaxed text-muted">
-              Chỉ cần nhập giá <b className="text-cream">tờ chuẩn {fmtNum(anchor.value)} {currency.code}</b>
-              {' '}— các mệnh giá khác tự tính theo tỷ lệ. Giá mua có thể cộng/trừ chênh lệch từng tờ.
+              Nhập giá <b className="text-cream">tờ chuẩn {fmtNum(anchor.value)} {currency.code}</b>.
+              {' '}Mỗi mệnh giá có thể theo tỷ lệ, cộng/trừ chênh lệch hoặc dùng đơn giá mua riêng.
             </p>
 
             <div className="mb-5 flex flex-col gap-2.5">
@@ -156,6 +187,9 @@ export default function SettingsCurrency({ params }) {
 
         {currency.denominations.map((d) => {
           const isAnchor = anchor && d.id === anchor.id
+          const isDerived = Boolean(d.derivedBuy)
+          const hasFixedBuyRate = d.fixedBuyRate !== undefined
+          const canEdit = !isAnchor && !isDerived
           const buy = buyPricePerNote(currency, d)
           const sell = sellPricePerNote(currency, d)
           const open = openId === d.id
@@ -163,13 +197,26 @@ export default function SettingsCurrency({ params }) {
             <motion.div key={d.id} layout className="card-depth mb-2.5 overflow-hidden rounded-2xl">
               <div className="flex items-center gap-2 p-3 pl-4">
                 <button
-                  onClick={() => !isAnchor && setOpenId(open ? null : d.id)}
+                  onClick={() => canEdit && setOpenId(open ? null : d.id)}
                   className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 >
                   <span className="text-lg font-extrabold tnum">{fmtNum(d.value)}</span>
                   {isAnchor ? (
                     <span className="rounded-full border border-line-strong px-2 py-0.5 text-[9px] font-bold tracking-widest text-gold">
                       CHUẨN
+                    </span>
+                  ) : isDerived ? (
+                    <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-semibold text-gold-bright tnum">
+                      = {fmtNum(d.derivedBuy.sourceValue)} × {d.derivedBuy.multiplier}
+                      {d.derivedBuy.offset
+                        ? ` ${d.derivedBuy.offset > 0 ? '+' : '−'} ${fmtVND(Math.abs(d.derivedBuy.offset))}`
+                        : ''}
+                    </span>
+                  ) : hasFixedBuyRate ? (
+                    <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-semibold text-gold-bright tnum">
+                      {d.fixedBuyRate
+                        ? `${fmtVND(d.fixedBuyRate)}/${fmtNum(d.fixedBuyUnit || 1)} ${currency.code}`
+                        : 'giá riêng'}
                     </span>
                   ) : (
                     d.adjustBuy !== 0 && (
@@ -186,7 +233,7 @@ export default function SettingsCurrency({ params }) {
                       {sell ? `bán ${fmtVND(sell)}` : 'bán —'}
                     </span>
                   </span>
-                  {!isAnchor && (
+                  {canEdit && (
                     <ChevronRight
                       size={16}
                       className={`shrink-0 text-muted transition-transform ${open ? 'rotate-90' : ''}`}
@@ -197,14 +244,18 @@ export default function SettingsCurrency({ params }) {
               </div>
 
               <AnimatePresence initial={false}>
-                {open && !isAnchor && (
+                {open && canEdit && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 420, damping: 38 }}
                   >
-                    <AdjustEditor currency={currency} denom={d} />
+                    {hasFixedBuyRate ? (
+                      <FixedBuyRateEditor currency={currency} denom={d} />
+                    ) : (
+                      <AdjustEditor currency={currency} denom={d} />
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
