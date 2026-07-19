@@ -28,6 +28,20 @@ export function parseRate(display) {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+// Chênh lệch đ/tờ: cho phép âm. "-10000" -> "-10.000"
+export function formatAdjustInput(raw) {
+  const s = String(raw).replace('−', '-')
+  const neg = s.trimStart().startsWith('-')
+  const grouped = formatRateInput(s)
+  return neg ? `-${grouped}` : grouped
+}
+
+// "-10.000" -> -10000, "" -> 0
+export function parseAdjust(display) {
+  const n = parseInt(String(display).replace('−', '-').replace(/\./g, ''), 10)
+  return Number.isFinite(n) ? n : 0
+}
+
 export function relativeDateLabel(ts) {
   const d = new Date(ts)
   const today = new Date()

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import useStore from '../store/useStore'
+import useStore, { itemPricePerNote } from '../store/useStore'
 import { fmtNum, fmtVND, fmtTime, relativeDateLabel } from '../utils/format'
 import Header from '../components/Header'
 import { TypeBadge, EmptyState, ConfirmDeleteButton } from '../components/UI'
@@ -78,7 +78,7 @@ export default function History() {
                               >
                                 <span className="text-muted">
                                   {it.flag} {fmtNum(it.denomValue)} {it.currencyCode} ×{' '}
-                                  {fmtNum(it.qty)} • giá {fmtNum(it.rate)}
+                                  {fmtNum(it.qty)} • {fmtVND(itemPricePerNote(it))}/tờ
                                 </span>
                                 <span className="font-semibold tnum">
                                   {fmtVND(it.subtotalVND)}

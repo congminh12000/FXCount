@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import useStore, { billTotal } from '../store/useStore'
+import useStore, { billTotal, itemPricePerNote } from '../store/useStore'
 import { fmtNum, fmtVND } from '../utils/format'
 import Header from '../components/Header'
 import { BigButton, TypeBadge, EmptyState, ConfirmIconButton } from '../components/UI'
@@ -53,7 +53,7 @@ export default function BillScreen() {
                     <span className="font-semibold text-muted"> × {fmtNum(it.qty)} tờ</span>
                   </p>
                   <p className="truncate text-[11px] text-muted tnum whitespace-nowrap">
-                    = {fmtNum(it.foreignAmount)} {it.currencyCode} • giá {fmtNum(it.rate)}
+                    = {fmtNum(it.foreignAmount)} {it.currencyCode} • {fmtVND(itemPricePerNote(it))}/tờ
                   </p>
                 </div>
                 <p className="text-sm font-bold tnum">{fmtVND(it.subtotalVND)}</p>

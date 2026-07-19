@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import useStore, { findCurrency, ratesFor } from '../store/useStore'
+import useStore, { findCurrency, pricePerNoteFor } from '../store/useStore'
 import { fmtNum, fmtVND } from '../utils/format'
 import Header from '../components/Header'
 import NumberKeypad from '../components/NumberKeypad'
@@ -16,12 +16,12 @@ export default function EnterQuantity({ params }) {
 
   const currency = findCurrency(currencies, params.code)
   const denom = currency?.denominations.find((d) => d.id === params.denomId)
-  const rate = denom && ratesFor(denom, billType).find((r) => r.id === params.rateId)
-  if (!currency || !denom || !rate) return null
+  const price = currency && denom ? pricePerNoteFor(currency, denom, billType) : null
+  if (!currency || !denom || !price) return null
 
   const qty = parseInt(raw || '0', 10)
   const foreign = qty * denom.value
-  const vnd = Math.round(foreign * rate.rate)
+  const vnd = Math.round(qty * price)
 
   const onKey = (k) => {
     if (k === 'C') return setRaw('')
@@ -39,8 +39,7 @@ export default function EnterQuantity({ params }) {
       flag: currency.flag,
       denomValue: denom.value,
       qty,
-      rate: rate.rate,
-      rateLabel: rate.label,
+      pricePerNote: price,
     })
     resetStack([['bill']])
   }
@@ -49,9 +48,7 @@ export default function EnterQuantity({ params }) {
     <div className="flex flex-1 flex-col">
       <Header
         title="Nhập số tờ"
-        subtitle={`${currency.flag} ${fmtNum(denom.value)} ${currency.code} • ${
-          rate.label || 'Đơn giá'
-        } ${fmtNum(rate.rate)}`}
+        subtitle={`${currency.flag} ${fmtNum(denom.value)} ${currency.code} • ${fmtVND(price)} đ/tờ`}
         badge={<TypeBadge type={billType} />}
       />
 

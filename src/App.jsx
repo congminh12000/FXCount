@@ -3,27 +3,23 @@ import useStore from './store/useStore'
 import Home from './screens/Home'
 import SelectCurrency from './screens/SelectCurrency'
 import SelectDenomination from './screens/SelectDenomination'
-import SelectRate from './screens/SelectRate'
 import EnterQuantity from './screens/EnterQuantity'
 import BillScreen from './screens/BillScreen'
 import DoneScreen from './screens/DoneScreen'
 import History from './screens/History'
 import Settings from './screens/Settings'
 import SettingsCurrency from './screens/SettingsCurrency'
-import SettingsRates from './screens/SettingsRates'
 
 const SCREENS = {
   home: Home,
   currency: SelectCurrency,
   denom: SelectDenomination,
-  rate: SelectRate,
   qty: EnterQuantity,
   bill: BillScreen,
   done: DoneScreen,
   history: History,
   settings: Settings,
   'settings-currency': SettingsCurrency,
-  'settings-rates': SettingsRates,
 }
 
 const variants = {
