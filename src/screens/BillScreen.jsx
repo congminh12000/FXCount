@@ -5,6 +5,9 @@ import Header from '../components/Header'
 import { BigButton, TypeBadge, EmptyState, ConfirmIconButton } from '../components/UI'
 import { Plus, Check, Clock } from '../components/Icons'
 
+const originalPricePerNote = (item) =>
+  itemPricePerNote(item) - (item.adjustmentPerNote || 0)
+
 export default function BillScreen() {
   const bill = useStore((s) => s.bill)
   const removeItem = useStore((s) => s.removeItem)
@@ -52,11 +55,25 @@ export default function BillScreen() {
                     {fmtNum(it.denomValue)} {it.currencyCode}
                     <span className="font-semibold text-muted"> × {fmtNum(it.qty)} tờ</span>
                   </p>
-                  <p className="truncate text-[11px] text-muted tnum whitespace-nowrap">
-                    = {fmtNum(it.foreignAmount)} {it.currencyCode} • {fmtVND(itemPricePerNote(it))}/tờ
+                  <p className="mt-0.5 text-[11px] text-muted tnum">
+                    Tổng ngoại tệ: {fmtNum(it.foreignAmount)} {it.currencyCode}
                   </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] tnum">
+                    <span className="text-muted">
+                      {it.adjustmentPerNote ? 'Giá gốc' : 'Đơn giá'}:{' '}
+                      {fmtVND(originalPricePerNote(it))}đ/tờ
+                    </span>
+                    {it.adjustmentPerNote ? (
+                      <span className="rounded-md bg-gold/10 px-1.5 py-0.5 font-bold text-gold">
+                        Giảm {fmtVND(Math.abs(it.adjustmentPerNote))}đ/tờ
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                <p className="text-sm font-bold tnum">{fmtVND(it.subtotalVND)}</p>
+                <div className="shrink-0 text-right">
+                  <p className="text-[9px] font-bold tracking-[0.08em] text-muted">THÀNH TIỀN</p>
+                  <p className="text-sm font-bold tnum">{fmtVND(it.subtotalVND)}</p>
+                </div>
                 <ConfirmIconButton onConfirm={() => removeItem(it.id)} />
               </motion.div>
             ))}

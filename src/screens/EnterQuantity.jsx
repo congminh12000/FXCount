@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import useStore, { findCurrency, pricePerNoteFor } from '../store/useStore'
+import useStore, {
+  adjustedPricePerNote,
+  findCurrency,
+  pricePerNoteFor,
+} from '../store/useStore'
 import { fmtNum, fmtVND } from '../utils/format'
 import Header from '../components/Header'
 import NumberKeypad from '../components/NumberKeypad'
 import { BigButton, TypeBadge } from '../components/UI'
 import { Plus } from '../components/Icons'
+
+const PRICE_STEP = 5000
 
 export default function EnterQuantity({ params }) {
   const currencies = useStore((s) => s.currencies)
@@ -13,15 +19,17 @@ export default function EnterQuantity({ params }) {
   const addItem = useStore((s) => s.addItem)
   const resetStack = useStore((s) => s.resetStack)
   const [raw, setRaw] = useState('')
+  const [adjustmentPerNote, setAdjustmentPerNote] = useState(0)
 
   const currency = findCurrency(currencies, params.code)
   const denom = currency?.denominations.find((d) => d.id === params.denomId)
   const price = currency && denom ? pricePerNoteFor(currency, denom, billType) : null
   if (!currency || !denom || !price) return null
 
+  const finalPrice = adjustedPricePerNote(price, adjustmentPerNote)
   const qty = parseInt(raw || '0', 10)
   const foreign = qty * denom.value
-  const vnd = Math.round(qty * price)
+  const vnd = Math.round(qty * finalPrice)
 
   const onKey = (k) => {
     if (k === 'C') return setRaw('')
@@ -39,7 +47,8 @@ export default function EnterQuantity({ params }) {
       flag: currency.flag,
       denomValue: denom.value,
       qty,
-      pricePerNote: price,
+      pricePerNote: finalPrice,
+      adjustmentPerNote,
     })
     resetStack([['bill']])
   }
@@ -66,10 +75,41 @@ export default function EnterQuantity({ params }) {
           {qty ? fmtNum(qty) : '0'}
         </motion.p>
 
-        <div className="mt-4 flex flex-col items-center gap-1">
+        <div className="mt-4 flex w-full flex-col items-center gap-2">
           <p className="text-base font-semibold text-muted tnum">
             = {fmtNum(foreign)} {currency.code}
           </p>
+
+          <div className="card-depth flex w-full max-w-xs items-center gap-2 rounded-xl px-2.5 py-2">
+            <span className="shrink-0 text-[9px] font-bold tracking-[0.12em] text-muted">
+              GIẢM / TỜ
+            </span>
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setAdjustmentPerNote((current) => current - PRICE_STEP)}
+              disabled={finalPrice <= PRICE_STEP}
+              aria-label="Giảm thêm 5.000 đồng mỗi tờ"
+              className="card-depth flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-gold disabled:opacity-35"
+            >
+              −
+            </motion.button>
+            <input
+              readOnly
+              value={adjustmentPerNote ? `−${fmtVND(Math.abs(adjustmentPerNote))}` : '0'}
+              aria-label="Mức giảm giá mỗi tờ"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-line bg-card2 px-1.5 text-center text-base font-extrabold text-gold-bright tnum outline-none"
+            />
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setAdjustmentPerNote((current) => Math.min(0, current + PRICE_STEP))}
+              disabled={adjustmentPerNote === 0}
+              aria-label="Tăng lại 5.000 đồng mỗi tờ"
+              className="card-depth flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-gold disabled:opacity-35"
+            >
+              +
+            </motion.button>
+          </div>
+
           <p className="text-[30px] font-extrabold tnum text-gold-gradient">
             {fmtVND(vnd)} ₫
           </p>

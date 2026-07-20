@@ -61,6 +61,9 @@ export function sellPricePerNote(currency, denom) {
 export const pricePerNoteFor = (currency, denom, type) =>
   type === 'buy' ? buyPricePerNote(currency, denom) : sellPricePerNote(currency, denom)
 
+export const adjustedPricePerNote = (basePrice, adjustmentPerNote = 0) =>
+  Math.max(1, Math.round(basePrice + adjustmentPerNote))
+
 export function changeCurrencyAnchor(currency, nextAnchorValue) {
   const nextAnchor = currency.denominations.find((denom) => denom.value === nextAnchorValue)
   const currentAnchor = anchorOf(currency)
@@ -183,8 +186,9 @@ function repriceBillCurrency(bill, currencies, code) {
     items: bill.items.map((item) => {
       if (item.currencyCode !== code) return item
       const denom = currency.denominations.find((candidate) => candidate.value === item.denomValue)
-      const pricePerNote = pricePerNoteFor(currency, denom, bill.type)
-      if (!pricePerNote) return item
+      const basePricePerNote = pricePerNoteFor(currency, denom, bill.type)
+      if (!basePricePerNote) return item
+      const pricePerNote = adjustedPricePerNote(basePricePerNote, item.adjustmentPerNote)
       return {
         ...item,
         pricePerNote,
@@ -263,8 +267,9 @@ export function repriceOpenBill(bill, currencies, changedCodes) {
       if (!changedCodes.has(item.currencyCode)) return item
       const currency = currencies.find((candidate) => candidate.code === item.currencyCode)
       const denom = currency?.denominations.find((candidate) => candidate.value === item.denomValue)
-      const pricePerNote = currency ? pricePerNoteFor(currency, denom, bill.type) : null
-      if (!pricePerNote) return item
+      const basePricePerNote = currency ? pricePerNoteFor(currency, denom, bill.type) : null
+      if (!basePricePerNote) return item
+      const pricePerNote = adjustedPricePerNote(basePricePerNote, item.adjustmentPerNote)
       return {
         ...item,
         pricePerNote,
@@ -437,7 +442,7 @@ const useStore = create(
           bill: s.bill.type === type ? s.bill : { type, items: [] },
         })),
 
-      addItem: ({ currencyCode, flag, denomValue, qty, pricePerNote }) =>
+      addItem: ({ currencyCode, flag, denomValue, qty, pricePerNote, adjustmentPerNote = 0 }) =>
         set((s) => {
           const item = {
             id: uid(),
@@ -446,6 +451,7 @@ const useStore = create(
             denomValue,
             qty,
             pricePerNote,
+            ...(adjustmentPerNote ? { adjustmentPerNote } : {}),
             foreignAmount: qty * denomValue,
             subtotalVND: Math.round(qty * pricePerNote),
           }

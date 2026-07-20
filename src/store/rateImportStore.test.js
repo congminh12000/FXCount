@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultCurrencies } from '../data/defaults'
 import {
+  adjustedPricePerNote,
   buildRateImportState,
   buyPricePerNote,
   changeCurrencyAnchor,
@@ -8,6 +9,12 @@ import {
 } from './useStore'
 
 describe('rate import store', () => {
+  it('tính giá sau điều chỉnh theo từng tờ', () => {
+    expect(adjustedPricePerNote(2_615_000, -5_000)).toBe(2_610_000)
+    expect(adjustedPricePerNote(2_615_000, -10_000)).toBe(2_605_000)
+    expect(adjustedPricePerNote(2_000, -5_000)).toBe(1)
+  })
+
   it('áp dụng nguyên tử, giữ quy tắc USD nhỏ và tính lại bill đang mở', () => {
     const currencies = defaultCurrencies()
     const usd = currencies.find((currency) => currency.code === 'USD')
