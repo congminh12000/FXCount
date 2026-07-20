@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion'
-import useStore from '../store/useStore'
+import useStore, { itemPricePerNote } from '../store/useStore'
 import { fmtNum, fmtVND, fmtTime } from '../utils/format'
 import { BigButton, TypeBadge } from '../components/UI'
 import { Check } from '../components/Icons'
+
+const originalPricePerNote = (item) =>
+  itemPricePerNote(item) - (item.adjustmentPerNote || 0)
 
 export default function DoneScreen({ params }) {
   const history = useStore((s) => s.history)
@@ -48,12 +51,27 @@ export default function DoneScreen({ params }) {
             {record.items.map((it) => (
               <div
                 key={it.id}
-                className="flex items-center justify-between border-b border-line py-2.5 text-sm last:border-b-0"
+                className="flex items-center justify-between gap-3 border-b border-line py-2.5 text-sm last:border-b-0"
               >
-                <span className="text-muted">
-                  {it.flag} {fmtNum(it.denomValue)} {it.currencyCode} × {fmtNum(it.qty)}
-                </span>
-                <span className="font-semibold tnum">{fmtVND(it.subtotalVND)}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-muted">
+                    {it.flag} {fmtNum(it.denomValue)} {it.currencyCode} × {fmtNum(it.qty)}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] tnum">
+                    <span className="text-muted">
+                      Đơn giá: {fmtVND(originalPricePerNote(it))}đ/tờ
+                    </span>
+                    {it.adjustmentPerNote ? (
+                      <span className="rounded-md bg-gold/10 px-1.5 py-0.5 font-bold text-gold">
+                        Giảm {fmtVND(Math.abs(it.adjustmentPerNote))}đ/tờ
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[9px] font-bold tracking-[0.08em] text-muted">THÀNH TIỀN</p>
+                  <p className="font-semibold tnum">{fmtVND(it.subtotalVND)}</p>
+                </div>
               </div>
             ))}
           </motion.div>
