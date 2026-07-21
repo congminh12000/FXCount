@@ -177,6 +177,15 @@ function migrateV5Currencies(currencies = []) {
   })
 }
 
+// SGD và CHF đều dùng tờ 100 làm mệnh giá chuẩn. Quy đổi từ tờ chuẩn cũ giữ nguyên
+// đơn giá của từng mệnh giá, chỉ sửa lại anchor và giá hiển thị/cấu hình tương ứng.
+export function migrateV7Currencies(currencies = []) {
+  if (!currencies.length) return defaultCurrencies()
+  return currencies.map((currency) =>
+    ['SGD', 'CHF'].includes(currency.code) ? changeCurrencyAnchor(currency, 100) : currency
+  )
+}
+
 function repriceBillCurrency(bill, currencies, code) {
   if (!bill?.items?.length) return bill
   const currency = currencies.find((item) => item.code === code)
@@ -224,6 +233,13 @@ export function applyRateEntriesToCurrencies(currencies, entries) {
 
     let next = { ...currency }
     for (const entry of updates) {
+      if (
+        ['buy', 'sell'].includes(entry.kind) &&
+        entry.appAnchor &&
+        next.denominations.some((denom) => denom.value === entry.appAnchor)
+      ) {
+        next = changeCurrencyAnchor(next, entry.appAnchor)
+      }
       if (entry.kind === 'buy') next.buyAnchorPrice = entry.proposedValue
       if (entry.kind === 'sell') next.sellAnchorPrice = entry.proposedValue
 
@@ -483,7 +499,7 @@ const useStore = create(
     }),
     {
       name: 'fxcount',
-      version: 6,
+      version: 7,
       migrate: (persisted, version) => {
         if (version < 2 && persisted?.currencies) {
           persisted.currencies = persisted.currencies.map(migrateV1Currency)
@@ -497,6 +513,11 @@ const useStore = create(
         if (version < 5) {
           persisted.currencies = migrateV5Currencies(persisted?.currencies)
           persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'KRW')
+        }
+        if (version < 7) {
+          persisted.currencies = migrateV7Currencies(persisted?.currencies)
+          persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'SGD')
+          persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'CHF')
         }
         return persisted
       },

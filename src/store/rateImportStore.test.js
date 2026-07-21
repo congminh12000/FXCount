@@ -5,6 +5,7 @@ import {
   buildRateImportState,
   buyPricePerNote,
   changeCurrencyAnchor,
+  migrateV7Currencies,
   restoreRateImportBackup,
 } from './useStore'
 
@@ -90,6 +91,49 @@ describe('rate import store', () => {
     expect(next.buyAnchorPrice).toBe(20_000_000)
     expect(next.sellAnchorPrice).toBeNull()
     expect(buyPricePerNote(next, nextAnchor)).toBe(20_000_000)
+  })
+
+  it('migrate SGD và CHF về tờ chuẩn 100 mà giữ nguyên giá từng mệnh giá', () => {
+    const currencies = defaultCurrencies().map((currency) => {
+      if (currency.code === 'SGD') {
+        return { ...currency, anchorValue: 10_000, buyAnchorPrice: 200_000_000 }
+      }
+      if (currency.code === 'CHF') {
+        return { ...currency, anchorValue: 1_000, buyAnchorPrice: 31_500_000 }
+      }
+      return currency
+    })
+
+    const migrated = migrateV7Currencies(currencies)
+    const sgd = migrated.find((currency) => currency.code === 'SGD')
+    const chf = migrated.find((currency) => currency.code === 'CHF')
+
+    expect(sgd.anchorValue).toBe(100)
+    expect(sgd.buyAnchorPrice).toBe(2_000_000)
+    expect(chf.anchorValue).toBe(100)
+    expect(chf.buyAnchorPrice).toBe(3_150_000)
+  })
+
+  it('import SGD và CHF tự sửa anchor cũ về tờ chuẩn 100', () => {
+    const currencies = defaultCurrencies().map((currency) => {
+      if (currency.code === 'SGD') {
+        return { ...currency, anchorValue: 10_000, buyAnchorPrice: 200_000_000 }
+      }
+      if (currency.code === 'CHF') {
+        return { ...currency, anchorValue: 1_000, buyAnchorPrice: 31_500_000 }
+      }
+      return currency
+    })
+    const state = { currencies, bill: { type: 'buy', items: [] } }
+    const partial = buildRateImportState(state, [
+      { code: 'SGD', kind: 'buy', appAnchor: 100, proposedValue: 2_000_000 },
+      { code: 'CHF', kind: 'buy', appAnchor: 100, proposedValue: 3_150_000 },
+    ])
+    const sgd = partial.currencies.find((currency) => currency.code === 'SGD')
+    const chf = partial.currencies.find((currency) => currency.code === 'CHF')
+
+    expect(sgd).toMatchObject({ anchorValue: 100, buyAnchorPrice: 2_000_000 })
+    expect(chf).toMatchObject({ anchorValue: 100, buyAnchorPrice: 3_150_000 })
   })
 
   it('bỏ giá riêng khi mệnh giá đó được chọn làm tờ chuẩn', () => {
