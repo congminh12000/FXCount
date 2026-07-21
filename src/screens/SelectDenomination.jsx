@@ -56,7 +56,7 @@ export default function SelectDenomination({ params }) {
                 }`}
               >
                 {isAnchor && (
-                  <span className="absolute top-2 right-2.5 text-[9px] font-bold tracking-widest text-gold/70">
+                  <span className="absolute top-2 right-2 inline-flex rounded-full border border-gold/30 bg-gold/10 px-2 py-1 text-[9px] leading-none font-bold tracking-[0.12em] text-gold-bright">
                     CHUẨN
                   </span>
                 )}
