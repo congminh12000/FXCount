@@ -39,7 +39,7 @@ export default function Settings() {
           className="mb-4 w-full"
           onClick={() => push('import-rates')}
         >
-          <ScanLine size={20} /> Nhập bảng giá từ ảnh
+          <ScanLine size={20} /> Nhập bảng giá
         </BigButton>
 
         {currencies.map((c) => (

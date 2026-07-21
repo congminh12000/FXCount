@@ -4,19 +4,21 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "prepare:ocr": "node scripts/copy-ocr-assets.mjs",
+    "predev": "npm run prepare:ocr",
     "dev": "vite",
-    "dev:full": "npx vercel dev",
+    "prebuild": "npm run prepare:ocr",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.2.5",
+    "@tesseract.js-data/eng": "^1.0.0",
     "framer-motion": "^12.23.0",
-    "openai": "^6.48.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "zod": "^4.4.3",
+    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

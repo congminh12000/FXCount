@@ -83,4 +83,23 @@ describe('normalizeRateSheetExtraction', () => {
     })
     expect(result.entries[0].needsReview).toBe(true)
   })
+
+  it('giữ dòng cố định không đọc được để người dùng sửa hoặc bỏ chọn', () => {
+    const result = normalizeRateSheetExtraction(
+      {
+        sheetDateLabel: null,
+        warnings: [],
+        rows: [row('không đọc được', 'EUR', 'buy', null, 0)],
+      },
+      { keepUnreadable: true }
+    )
+
+    expect(result.entries).toHaveLength(1)
+    expect(result.entries[0]).toMatchObject({
+      code: 'EUR',
+      proposedValue: null,
+      needsReview: true,
+    })
+    expect(result.warnings).toHaveLength(1)
+  })
 })

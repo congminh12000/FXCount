@@ -9,7 +9,7 @@ Web app mobile-first tính giá giao dịch ngoại tệ (mua vào / bán ra) ch
 - **1 bill gộp nhiều ngoại tệ + mệnh giá**, tổng cuối bằng VND
 - **Lịch sử giao dịch** theo ngày, lưu ngay trên máy (localStorage, không cần đăng nhập, offline được)
 - **PWA**: thêm vào màn hình chính điện thoại, dùng như app thật
-- **Import bảng giá từ ảnh**: chụp/chọn ảnh viết tay, AI đọc theo quy ước của tiệm, duyệt từng dòng rồi mới cập nhật và có thể hoàn tác
+- **Import bảng giá**: nhập/dán JSON do ChatGPT tạo hoặc chụp ảnh để OCR trên thiết bị; luôn duyệt lại trước khi cập nhật và có thể hoàn tác
 - Giao diện tối vàng–đen, hiệu ứng chạm và chuyển cảnh mượt
 
 ## Tech
@@ -25,21 +25,19 @@ npm run build    # build production vào dist/
 npm run preview  # xem thử bản build
 ```
 
-## Import bảng giá bằng AI
+## Import bảng giá bằng OCR offline
 
-Tạo `.env.local` từ `.env.example` và đặt các biến:
+- Bộ đọc dùng Tesseract.js/WebAssembly và chỉ nhận dạng 17 ô số theo mẫu giấy cố định V1.
+- Ảnh, nội dung OCR và giá không được gửi tới API hoặc dịch vụ bên ngoài.
+- `npm run dev` và `npm run build` tự sao chép worker, OCR core và language-data từ `node_modules` sang `public/ocr`.
+- Lần đầu mở màn hình import, trình duyệt tải các static assets này từ chính FXCount; service worker lưu chúng để dùng offline ở các lần sau.
+- Ảnh chỉ tồn tại trong bộ nhớ của màn hình import, không lưu trong Zustand/localStorage.
 
-```bash
-OPENAI_API_KEY=...
-OPENAI_VISION_MODEL=gpt-5.6-sol
-```
+Không cần API key hoặc biến môi trường cho tính năng import.
 
-Không đặt API key trong biến `VITE_*` vì các biến đó sẽ bị đưa xuống trình duyệt. Khi deploy Vercel, thêm các biến trên vào Project Settings → Environment Variables cho Production và Preview.
+## Import bảng giá bằng JSON
 
-Chạy cả Vite app và Vercel Function ở local bằng:
-
-```bash
-npm run dev:full
-```
-
-`npm run dev` chỉ chạy giao diện Vite nên endpoint `/api/import-rates` không hoạt động. Ảnh được thu nhỏ trong trình duyệt, gửi tạm thời đến OpenAI để nhận dạng và không được lưu trong Zustand/localStorage.
+- Trong **Cài đặt → Nhập bảng giá**, chọn **Sao chép hướng dẫn cho ChatGPT** rồi gửi hướng dẫn kèm ảnh bảng giá cho ChatGPT.
+- Dán JSON ChatGPT trả về hoặc chọn file `.json` dưới 100KB. App chỉ nhận cấu trúc V1 cố định và kiểm tra khoảng giá trước khi hiển thị màn hình xem lại.
+- Giá `null`, thiếu, sai kiểu hoặc ngoài khoảng an toàn không được áp dụng; giá hiện tại tương ứng được giữ nguyên.
+- JSON được xử lý hoàn toàn trong trình duyệt. FXCount không tự gửi ảnh hoặc dữ liệu tới ChatGPT.

@@ -81,13 +81,53 @@ function krwEntry(row, index) {
   }
 }
 
-export function normalizeRateSheetExtraction(extraction) {
+function unreadableEntry(row, index) {
+  if (row.currencyCode === 'KRW' && ['krw_50_5', 'krw_10_1'].includes(row.kind)) {
+    return {
+      id: entryId(row, index),
+      code: 'KRW',
+      kind: row.kind,
+      sourceLabel: row.sourceLabel,
+      sheetValue: null,
+      proposedValue: null,
+      appAnchor: 1000,
+      confidence: row.confidence || 0,
+      needsReview: true,
+      note: row.note,
+      unitLabel:
+        row.kind === 'krw_50_5'
+          ? 'đ / 1.000 KRW (nhóm 50.000/5.000)'
+          : 'đ / tờ 1.000 KRW (nhóm 10.000/1.000)',
+    }
+  }
+
+  const rule = RATE_SHEET_RULES[row.currencyCode]
+  if (!rule || !['buy', 'sell'].includes(row.kind)) return null
+  if (row.kind === 'sell' && row.currencyCode !== 'USD') return null
+  return {
+    id: entryId(row, index),
+    code: row.currencyCode,
+    kind: row.kind,
+    sourceLabel: row.sourceLabel,
+    sheetValue: null,
+    proposedValue: null,
+    appAnchor: rule.appAnchor,
+    confidence: row.confidence || 0,
+    needsReview: true,
+    note: row.note,
+    unitLabel: `đ / tờ ${rule.appAnchor.toLocaleString('vi-VN')} ${row.currencyCode}`,
+  }
+}
+
+export function normalizeRateSheetExtraction(extraction, { keepUnreadable = false } = {}) {
   const warnings = [...(extraction.warnings || [])]
   const entries = []
   const seen = new Set()
 
   for (const [index, row] of (extraction.rows || []).entries()) {
     if (!row.sheetValue || row.currencyCode === 'UNKNOWN' || row.kind === 'unknown') {
+      const placeholder = keepUnreadable ? unreadableEntry(row, index) : null
+      if (placeholder) entries.push(placeholder)
       warnings.push(`Không thể dùng dòng “${row.sourceLabel || 'không rõ'}”.`)
       continue
     }
