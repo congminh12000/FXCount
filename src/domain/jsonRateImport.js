@@ -70,10 +70,12 @@ const RATE_FIELDS = [
 
 const fieldKeys = new Set(RATE_FIELDS.map((field) => field.key))
 
+const normalizeSmartQuotes = (value) => value.replace(/[\u201C\u201D]/g, '"')
+
 const stripCodeFence = (input) => {
   const value = String(input || '').replace(/^\uFEFF/, '').trim()
   const fenced = value.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
-  return fenced ? fenced[1].trim() : value
+  return normalizeSmartQuotes(fenced ? fenced[1].trim() : value)
 }
 
 const parseDateLabel = (value, warnings) => {

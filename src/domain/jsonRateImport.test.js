@@ -62,6 +62,14 @@ describe('parseRateImportJson', () => {
     expect(result.entries).toHaveLength(17)
   })
 
+  it('tự đổi dấu ngoặc kép cong thành dấu ngoặc kép JSON chuẩn', () => {
+    const smartQuotedJson = JSON.stringify(fullPayload).replace(/"([^"]*)"/g, '“$1”')
+    const result = parseRateImportJson(smartQuotedJson)
+
+    expect(result.sheetDateLabel).toBe('20/7')
+    expect(result.entries).toHaveLength(17)
+  })
+
   it('giữ nguyên trường thiếu, null và cảnh báo khóa lạ hoặc giá sai', () => {
     const result = parseRateImportJson(
       JSON.stringify({

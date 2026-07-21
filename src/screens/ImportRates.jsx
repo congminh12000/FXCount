@@ -43,6 +43,13 @@ const labelForEntry = (entry) => {
   return `${entry.code} — MUA VÀO`
 }
 
+const sectionLabelForEntry = (entry) => {
+  if (entry.kind === 'sell') return 'BÁN RA'
+  if (entry.kind === 'krw_50_5') return 'NHÓM 50.000/5.000'
+  if (entry.kind === 'krw_10_1') return 'NHÓM 10.000/1.000'
+  return 'MUA VÀO'
+}
+
 const freshCorners = () =>
   Object.fromEntries(
     Object.entries(DEFAULT_PAPER_CORNERS).map(([key, point]) => [key, { ...point }])
@@ -53,6 +60,7 @@ export default function ImportRates() {
   const applyRateImport = useStore((s) => s.applyRateImport)
   const undoRateImport = useStore((s) => s.undoRateImport)
   const lastRateImportBackup = useStore((s) => s.lastRateImportBackup)
+  const goHome = useStore((s) => s.goHome)
   const cameraRef = useRef(null)
   const libraryRef = useRef(null)
   const jsonFileRef = useRef(null)
@@ -215,6 +223,15 @@ export default function ImportRates() {
     () => entries.filter((entry) => entry.selected && parseRate(entry.editText)),
     [entries]
   )
+  const entryGroups = useMemo(() => {
+    const groups = new Map()
+    entries.forEach((entry) => {
+      const group = groups.get(entry.code) || []
+      group.push(entry)
+      groups.set(entry.code, group)
+    })
+    return [...groups.entries()].map(([code, groupEntries]) => ({ code, entries: groupEntries }))
+  }, [entries])
   const hasUnconfirmed = entries.some(
     (entry) => entry.selected && entry.needsReview && !entry.confirmed
   )
@@ -236,6 +253,15 @@ export default function ImportRates() {
     setImageDataUrl('')
     setApplied(true)
     setUndone(false)
+  }
+
+  const confirmUndo = () => {
+    const confirmed = window.confirm(
+      'Hoàn tác sẽ khôi phục bảng giá và bill trước lần cập nhật này. Bạn có chắc muốn tiếp tục?'
+    )
+    if (!confirmed) return
+    undoRateImport()
+    setUndone(true)
   }
 
   const reset = () => {
@@ -260,7 +286,7 @@ export default function ImportRates() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <Header title="Nhập bảng giá" subtitle="JSON từ ChatGPT hoặc OCR offline" />
+      <Header title="Nhập bảng giá" />
 
       {cameraOpen && (
         <CameraCapture
@@ -279,29 +305,26 @@ export default function ImportRates() {
             <div className="btn-gold mb-5 flex h-20 w-20 items-center justify-center rounded-full">
               <Check size={38} />
             </div>
-            <h2 className="text-xl font-bold">Đã cập nhật bảng giá</h2>
+            <h2 className="text-xl font-bold">Cập nhật bảng giá thành công</h2>
             <p className="mt-2 max-w-xs text-sm text-muted">
               Đã áp dụng {selectedEntries.length} dòng
               {sheetDateLabel ? ` của ngày ${sheetDateLabel}` : ''} và tính lại bill đang mở.
             </p>
+            <BigButton className="mt-6 w-full" onClick={goHome}>
+              Quay về trang chủ
+            </BigButton>
             {lastRateImportBackup && !undone && (
               <BigButton
-                variant="outline"
-                className="mt-6 w-full"
-                onClick={() => {
-                  undoRateImport()
-                  setUndone(true)
-                }}
+                variant="ghost"
+                className="mt-2 w-full"
+                onClick={confirmUndo}
               >
-                <Undo size={20} /> Hoàn tác lần import này
+                <Undo size={20} /> Hoàn tác
               </BigButton>
             )}
             {undone && (
               <p className="mt-5 font-semibold text-gold-bright">Đã khôi phục bảng giá cũ.</p>
             )}
-            <BigButton variant="ghost" className="mt-2 w-full" onClick={reset}>
-              Nhập bảng giá khác
-            </BigButton>
           </div>
         ) : entries.length ? (
           <>
@@ -326,100 +349,127 @@ export default function ImportRates() {
               </p>
             ))}
 
-            {entries.map((entry) => {
-              const currency = currencies.find((candidate) => candidate.code === entry.code)
-              const currentValue = currentValueForImportEntry(currency, entry)
+            {entryGroups.map((group) => {
+              const currency = currencies.find((candidate) => candidate.code === group.code)
               return (
                 <div
-                  key={entry.id}
-                  className={`card-depth mb-3 rounded-2xl p-4 ${entry.selected ? '' : 'opacity-55'}`}
+                  key={group.code}
+                  className="card-depth mb-3 overflow-hidden rounded-2xl p-4"
                 >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={entry.selected}
-                      onChange={(event) =>
-                        updateEntry(entry.id, { selected: event.target.checked })
-                      }
-                      className="mt-1 h-5 w-5 accent-[#d4af37]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold">{labelForEntry(entry)}</p>
-                        <span
-                          className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                            entry.needsReview
-                              ? 'bg-danger/15 text-danger'
-                              : 'bg-gold/15 text-gold-bright'
-                          }`}
-                        >
-                          {importSource === 'json'
-                            ? 'JSON'
-                            : entry.confidence
-                            ? `${Math.round(entry.confidence * 100)}%`
-                            : 'CẦN NHẬP'}
-                        </span>
-                      </div>
-                      {entry.cropPreview && (
-                        <img
-                          src={entry.cropPreview}
-                          alt={`Vùng ảnh ${labelForEntry(entry)}`}
-                          className="mt-2 h-14 w-full rounded-lg border border-line bg-white object-contain"
-                        />
-                      )}
-                      {importSource === 'json' ? (
-                        <p className="mt-1 text-xs text-muted tnum">
-                          Giá trên giấy: {entry.sheetValue?.toLocaleString('vi-VN') || '—'}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-xs text-muted">
-                          OCR đọc: “{entry.rawText || 'không đọc được'}”
-                        </p>
-                      )}
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-xl bg-card2/70 p-2.5">
-                          <p className="text-[10px] font-bold tracking-wider text-muted">
-                            GIÁ HIỆN TẠI
-                          </p>
-                          <p className="mt-1 text-sm font-bold tnum">
-                            {currentValue ? fmtVND(currentValue) : '—'}
-                          </p>
-                        </div>
-                        <label className="rounded-xl bg-card2/70 p-2.5">
-                          <span className="text-[10px] font-bold tracking-wider text-gold">
-                            GIÁ ĐỀ XUẤT
-                          </span>
-                          <input
-                            value={entry.editText}
-                            inputMode="numeric"
-                            placeholder="Nhập giá"
-                            disabled={!entry.selected}
-                            onChange={(event) => {
-                              const editText = formatRateInput(event.target.value)
-                              updateEntry(entry.id, {
-                                editText,
-                                confirmed: entry.needsReview ? false : entry.confirmed,
-                              })
-                            }}
-                            className="mt-1 w-full bg-transparent text-sm font-bold text-gold-bright placeholder:text-muted/40 tnum outline-none"
-                          />
-                        </label>
-                      </div>
-                      <p className="mt-2 text-[11px] text-muted">{entry.unitLabel}</p>
-                      {entry.needsReview && entry.selected && (
-                        <label className="mt-3 flex items-center gap-2 rounded-xl border border-danger/35 bg-danger/10 p-2.5 text-xs font-semibold text-danger">
-                          <input
-                            type="checkbox"
-                            checked={entry.confirmed}
-                            onChange={(event) =>
-                              updateEntry(entry.id, { confirmed: event.target.checked })
-                            }
-                            className="h-4 w-4 accent-[#e5484d]"
-                          />
-                          Tôi đã đối chiếu dòng này với ảnh
-                        </label>
+                  <div className="flex items-center gap-2.5 border-b border-line pb-3">
+                    <span className="text-2xl leading-none" aria-hidden="true">
+                      {currency?.flag || '💱'}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-bold">{group.code}</p>
+                      {currency?.name && (
+                        <p className="truncate text-xs text-muted">{currency.name}</p>
                       )}
                     </div>
+                  </div>
+
+                  <div className="divide-y divide-line">
+                    {group.entries.map((entry) => {
+                      const currentValue = currentValueForImportEntry(currency, entry)
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`flex items-start gap-3 py-4 first:pt-3 last:pb-0 ${
+                            entry.selected ? '' : 'opacity-55'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={entry.selected}
+                            aria-label={`Chọn ${labelForEntry(entry)}`}
+                            onChange={(event) =>
+                              updateEntry(entry.id, { selected: event.target.checked })
+                            }
+                            className="mt-0.5 h-5 w-5 shrink-0 accent-[#d4af37]"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-bold text-gold-bright">
+                                {sectionLabelForEntry(entry)}
+                              </p>
+                              {importSource !== 'json' && (
+                                <span
+                                  className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                                    entry.needsReview
+                                      ? 'bg-danger/15 text-danger'
+                                      : 'bg-gold/15 text-gold-bright'
+                                  }`}
+                                >
+                                  {entry.confidence
+                                    ? `${Math.round(entry.confidence * 100)}%`
+                                    : 'CẦN NHẬP'}
+                                </span>
+                              )}
+                            </div>
+                            {entry.cropPreview && (
+                              <img
+                                src={entry.cropPreview}
+                                alt={`Vùng ảnh ${labelForEntry(entry)}`}
+                                className="mt-2 h-14 w-full rounded-lg border border-line bg-white object-contain"
+                              />
+                            )}
+                            {importSource === 'json' ? (
+                              <p className="mt-1 text-xs text-muted tnum">
+                                Giá trên giấy: {entry.sheetValue?.toLocaleString('vi-VN') || '—'}
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-xs text-muted">
+                                OCR đọc: “{entry.rawText || 'không đọc được'}”
+                              </p>
+                            )}
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-xl bg-card2/70 p-2.5">
+                                <p className="text-[10px] font-bold tracking-wider text-muted">
+                                  GIÁ HIỆN TẠI
+                                </p>
+                                <p className="mt-1 text-sm font-bold tnum">
+                                  {currentValue ? fmtVND(currentValue) : '—'}
+                                </p>
+                              </div>
+                              <label className="rounded-xl bg-card2/70 p-2.5">
+                                <span className="text-[10px] font-bold tracking-wider text-gold">
+                                  GIÁ MỚI
+                                </span>
+                                <input
+                                  value={entry.editText}
+                                  inputMode="numeric"
+                                  aria-label={`Giá mới ${labelForEntry(entry)}`}
+                                  placeholder="Nhập giá"
+                                  disabled={!entry.selected}
+                                  onChange={(event) => {
+                                    const editText = formatRateInput(event.target.value)
+                                    updateEntry(entry.id, {
+                                      editText,
+                                      confirmed: entry.needsReview ? false : entry.confirmed,
+                                    })
+                                  }}
+                                  className="mt-1 w-full bg-transparent text-sm font-bold text-gold-bright placeholder:text-muted/40 tnum outline-none"
+                                />
+                              </label>
+                            </div>
+                            <p className="mt-2 text-[11px] text-muted">{entry.unitLabel}</p>
+                            {entry.needsReview && entry.selected && (
+                              <label className="mt-3 flex items-center gap-2 rounded-xl border border-danger/35 bg-danger/10 p-2.5 text-xs font-semibold text-danger">
+                                <input
+                                  type="checkbox"
+                                  checked={entry.confirmed}
+                                  onChange={(event) =>
+                                    updateEntry(entry.id, { confirmed: event.target.checked })
+                                  }
+                                  className="h-4 w-4 accent-[#e5484d]"
+                                />
+                                Tôi đã đối chiếu dòng này với ảnh
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
