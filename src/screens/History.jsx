@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import useStore, { itemPricePerNote } from '../store/useStore'
-import { fmtNum, fmtVND, fmtTime, relativeDateLabel } from '../utils/format'
+import { fmtNum, fmtVND, fmtTime } from '../utils/format'
 import Header from '../components/Header'
 import { TypeBadge, EmptyState, ConfirmDeleteButton } from '../components/UI'
 import { Clock, ChevronRight } from '../components/Icons'
+import {
+  HISTORY_DAY_BATCH_SIZE,
+  groupHistoryByDay,
+  nextVisibleDayCount,
+} from './historyData'
 
 const originalPricePerNote = (item) =>
   itemPricePerNote(item) - (item.adjustmentPerNote || 0)
@@ -125,14 +130,30 @@ export default function History() {
   const history = useStore((s) => s.history)
   const deleteHistory = useStore((s) => s.deleteHistory)
   const [openId, setOpenId] = useState(null)
+  const [visibleDayCount, setVisibleDayCount] = useState(HISTORY_DAY_BATCH_SIZE)
+  const scrollRef = useRef(null)
+  const loadMoreRef = useRef(null)
+  const groups = useMemo(() => groupHistoryByDay(history), [history])
+  const visibleGroups = groups.slice(0, visibleDayCount)
+  const hasMore = visibleDayCount < groups.length
 
-  const groups = []
-  for (const rec of history) {
-    const label = relativeDateLabel(rec.completedAt)
-    const g = groups[groups.length - 1]
-    if (g && g.label === label) g.items.push(rec)
-    else groups.push({ label, items: [rec] })
-  }
+  useEffect(() => {
+    const root = scrollRef.current
+    const target = loadMoreRef.current
+    if (!hasMore || !root || !target) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setVisibleDayCount((currentCount) =>
+          nextVisibleDayCount(currentCount, groups.length)
+        )
+      },
+      { root, rootMargin: '0px 0px 240px 0px', threshold: 0.01 }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [groups.length, hasMore])
 
   return (
     <div className="flex flex-1 flex-col">
@@ -145,9 +166,9 @@ export default function History() {
           subtitle="Các bill hoàn tất sẽ được lưu ở đây"
         />
       ) : (
-        <div className="flex-1 overflow-y-auto px-5 pt-1 pb-10">
-          {groups.map((g) => (
-            <div key={g.label}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pt-1 pb-10">
+          {visibleGroups.map((g) => (
+            <div key={g.key}>
               <p className="mt-4 mb-2 text-[11px] font-bold tracking-[0.15em] text-muted uppercase">
                 {g.label}
               </p>
@@ -231,6 +252,19 @@ export default function History() {
               })}
             </div>
           ))}
+          {hasMore ? (
+            <div
+              ref={loadMoreRef}
+              aria-live="polite"
+              className="flex min-h-14 items-center justify-center text-[11px] font-semibold text-muted"
+            >
+              Đang tải thêm…
+            </div>
+          ) : (
+            <p className="py-5 text-center text-[10px] font-semibold tracking-wide text-muted/70">
+              ĐÃ HIỂN THỊ TOÀN BỘ
+            </p>
+          )}
         </div>
       )}
     </div>

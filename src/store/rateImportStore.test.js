@@ -6,6 +6,7 @@ import {
   buyPricePerNote,
   changeCurrencyAnchor,
   migrateV7Currencies,
+  migrateV8Currencies,
   restoreRateImportBackup,
 } from './useStore'
 
@@ -145,5 +146,26 @@ describe('rate import store', () => {
     expect(next.buyAnchorPrice).toBe(460_000)
     expect(nextAnchor.fixedBuyRate).toBeUndefined()
     expect(buyPricePerNote(next, nextAnchor)).toBe(460_000)
+  })
+
+  it('bổ sung tờ 100 GBP cho dữ liệu đã lưu và giữ nguyên giá hiện tại', () => {
+    const currencies = defaultCurrencies().map((currency) =>
+      currency.code === 'GBP'
+        ? {
+            ...currency,
+            buyAnchorPrice: 345_000,
+            denominations: currency.denominations.filter((denom) => denom.value !== 100),
+          }
+        : currency
+    )
+
+    const migrated = migrateV8Currencies(currencies)
+    const gbp = migrated.find((currency) => currency.code === 'GBP')
+    const gbp100 = gbp.denominations.find((denom) => denom.value === 100)
+
+    expect(gbp.denominations.map((denom) => denom.value)).toEqual([100, 50, 20, 10, 5])
+    expect(gbp.anchorValue).toBe(10)
+    expect(gbp.buyAnchorPrice).toBe(345_000)
+    expect(buyPricePerNote(gbp, gbp100)).toBe(3_450_000)
   })
 })

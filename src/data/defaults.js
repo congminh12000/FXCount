@@ -113,7 +113,7 @@ export function defaultCurrencies() {
       anchorValue: 10,
       buyAnchorPrice: 341000,
       sellAnchorPrice: null,
-      denominations: [d(50), d(20), d(10), d(5)],
+      denominations: [d(100), d(50), d(20), d(10), d(5)],
     },
     {
       code: 'TWD',

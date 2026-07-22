@@ -186,6 +186,23 @@ export function migrateV7Currencies(currencies = []) {
   )
 }
 
+// Bổ sung tờ 100 GBP cho dữ liệu đã lưu, giữ nguyên tờ chuẩn và các mức giá hiện tại.
+export function migrateV8Currencies(currencies = []) {
+  if (!currencies.length) return defaultCurrencies()
+  return currencies.map((currency) => {
+    if (
+      currency.code !== 'GBP' ||
+      currency.denominations.some((denom) => denom.value === 100)
+    ) return currency
+
+    const denominations = [
+      ...currency.denominations,
+      { id: uid(), value: 100, adjustBuy: 0 },
+    ].sort((a, b) => b.value - a.value)
+    return { ...currency, denominations }
+  })
+}
+
 function repriceBillCurrency(bill, currencies, code) {
   if (!bill?.items?.length) return bill
   const currency = currencies.find((item) => item.code === code)
@@ -499,7 +516,7 @@ const useStore = create(
     }),
     {
       name: 'fxcount',
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         if (version < 2 && persisted?.currencies) {
           persisted.currencies = persisted.currencies.map(migrateV1Currency)
@@ -518,6 +535,9 @@ const useStore = create(
           persisted.currencies = migrateV7Currencies(persisted?.currencies)
           persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'SGD')
           persisted.bill = repriceBillCurrency(persisted.bill, persisted.currencies, 'CHF')
+        }
+        if (version < 8) {
+          persisted.currencies = migrateV8Currencies(persisted?.currencies)
         }
         return persisted
       },
