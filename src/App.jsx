@@ -10,6 +10,7 @@ import History from './screens/History'
 import Settings from './screens/Settings'
 import SettingsCurrency from './screens/SettingsCurrency'
 import ImportRates from './screens/ImportRates'
+import RateList from './screens/RateList'
 
 const SCREENS = {
   home: Home,
@@ -22,6 +23,7 @@ const SCREENS = {
   settings: Settings,
   'settings-currency': SettingsCurrency,
   'import-rates': ImportRates,
+  'rate-list': RateList,
 }
 
 const variants = {

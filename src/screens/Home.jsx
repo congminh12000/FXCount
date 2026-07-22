@@ -63,6 +63,13 @@ export default function Home() {
           </BigButton>
         </div>
       </div>
+
+      <button
+        onClick={() => push('rate-list')}
+        className="mx-auto mb-1 flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-gold-bright active:opacity-70"
+      >
+        Xem danh sách giá
+      </button>
     </div>
   )
 }
